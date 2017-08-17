@@ -5,7 +5,6 @@ import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.Context;
 import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.view.DragEvent;
@@ -17,7 +16,7 @@ import android.widget.MediaController;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 import android.widget.VideoView;
-
+import android.net.Uri;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,13 +54,14 @@ public class MainActivity extends Activity implements View.OnClickListener {
     int firstDrawableScene;
     int selectedChoiceIndex;
     int secondChoiceIndex;
-    List<Integer> videosForOneScene = new ArrayList<>();
+    Map<String, Integer> videosForOneScene = new HashMap<>();
     String firstDrawableSceneName;
     String randomDrawableSceneName;
     String nextDrawableSceneName;
     int nextDrawableScene;
     List<Integer> keyList;
     Map<Integer, String> drawableIdsforFirstVideo = new HashMap<>();
+    Map<Integer, String> drawableIds = new HashMap<>();
 
 
     @Override
@@ -76,16 +76,18 @@ public class MainActivity extends Activity implements View.OnClickListener {
         playbuttonFirstChoice.setOnClickListener(this);
         playbuttonSecondChoice.setOnClickListener(this);
         playbuttonFirstVideo.setOnClickListener(this);
+        getFirstVideoDrawableIds();
 
         //es wird per Zufall eine Filsequenzausgewählt und davon die erste Szene (nur eine ImageDatei)
-        List<Integer> keyListFirstDrawableScene = new ArrayList<>(getFirstVideoDrawableIds().keySet());
+        List<Integer> keyListFirstDrawableScene = new ArrayList<>(drawableIds.keySet());
         firstDrawableScene = keyListFirstDrawableScene.get(new Random().nextInt(keyListFirstDrawableScene.size()));
-        firstDrawableSceneName = getFirstVideoDrawableIds().get(firstDrawableScene);
+        firstDrawableSceneName = drawableIds.get(firstDrawableScene);
         //ausgewählte Szene wird dem ImageView zugeteilt
         firstvideo.setImageResource(firstDrawableScene);
 
         //es wird eine Map erstellt mit alles Szenebildern einer Szene mit Name und der Id
         getVideoDrawableNextId();
+        getVideosForOneScene();
 
         //die direkt auf die erste Szene folgende Szene
         keyList = new ArrayList<>(drawableIdsforFirstVideo.keySet());
@@ -99,7 +101,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
         int randomDrawableScene = keyList.get(new Random().nextInt(keyList.size()));
         randomDrawableSceneName = drawableIdsforFirstVideo.get(randomDrawableScene);
 
-        getVideosForOneScene();
+
+
 
         targetButton.setVisibility(View.INVISIBLE);
 
@@ -131,17 +134,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     public void setVideo(String sceneNumber, String sceneNumberGroup) {
-        for (Field f : com.example.admin.myapplication2.R.raw.class.getFields()) {
-            Context mContext = getApplicationContext();
-            String field = f.getName();
-            int sceneField = getResources().getIdentifier(field, "raw", mContext.getPackageName());
 
-            if (field.contains(sceneNumber) & field.contains(sceneNumberGroup)) {
-                video.setVideoURI(Uri.parse("android.resource://" + getPackageName() + "/" + sceneField));
-                startVideo(video);
-
-            }
-        }
+        //TODO:Nullpointerexception
+        int videoID = videosForOneScene.get("film_" + sceneNumberGroup + "_" + sceneNumber);
+        video.setVideoURI(Uri.parse("android.resource://" + getPackageName() + "/" + videoID));
+        startVideo(video);
+        videosForOneScene.remove("film_" + sceneNumberGroup + "_" + sceneNumber);
     }
 
     @Override
@@ -158,12 +156,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
             case R.id.playbuttonFirstChoice:
                 //choice1
                 if (choiceList.get(0).getId() == selectedChoiceId) {
-                    video.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                        @Override
-                        public void onCompletion(MediaPlayer mp) {
-                            layout.removeView(video);
-                        }
-                    });
 
                     sceneNumberGroup = nextDrawableSceneName.substring(1, 3);
                     sceneNumber = nextDrawableSceneName.substring(5);
@@ -177,14 +169,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 break;
             case R.id.playbuttonSecondChoice:
                 //choice2
-
                 if (choiceList.get(1).getId() == selectedChoiceId) {
-                    video.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-                        @Override
-                        public void onCompletion(MediaPlayer mp) {
-                            layout.removeView(video);
-                        }
-                    });
 
                     sceneNumberGroup = nextDrawableSceneName.substring(1, 3);
                     sceneNumber = nextDrawableSceneName.substring(5);
@@ -230,7 +215,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     // Map mit allen Namen und Ids ersten der Szenebilder
     public Map<Integer, String> getFirstVideoDrawableIds() {
-        Map<Integer, String> drawableIds = new HashMap<>();
+
 
         for (Field f : com.example.admin.myapplication2.R.drawable.class.getDeclaredFields()) {
             String field = f.getName();
@@ -243,7 +228,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
 
-    //Map mit allen Name und id  Szenebildern einer gewählten Serie
+    //Map mit allen Namen und id  Szenebildern einer gewählten Serie
     public Map<Integer, String> getVideoDrawableNextId() {
         //Liste mit allen Videos des zum zuerst gewählten Video
         String firstScene = getResources().getResourceEntryName(firstDrawableScene);
@@ -259,8 +244,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         return drawableIdsforFirstVideo;
     }
 
-    //Zuordnung des Videos
-    public List<Integer> getVideosForOneScene() {
+
+    //alle Videoids und Namen für eine Szene ausser Video 1
+    public Map<String, Integer> getVideosForOneScene() {
 
         String firstScene = getResources().getResourceEntryName(firstDrawableScene);
         String subString = firstScene.substring(1, 3);
@@ -269,8 +255,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
         for (Field f : com.example.admin.myapplication2.R.raw.class.getDeclaredFields()) {
             String field = f.getName();
 
-            if (field.contains(subString)) {
-                videosForOneScene.add(getResources().getIdentifier(field, "raw", getPackageName()));
+            if (field.contains(subString) && !field.contains("_1")) {
+                videosForOneScene.put(field, getResources().getIdentifier(field, "raw", getPackageName()));
             }
         }
 
@@ -319,7 +305,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
                     //die direkt auf die erste Szene folgende Szene
                     nextDrawableScene++;
-                    //TODO:Szene rauslöschen
                     nextDrawableSceneName = drawableIdsforFirstVideo.get(nextDrawableScene);
                     drawableIdsforFirstVideo.remove(nextDrawableScene);
                     keyList.remove(new Integer(nextDrawableScene));
